@@ -20,8 +20,8 @@
         #log { font-size: 10px; color: var(--gold); margin-top: 15px; font-family: monospace; min-height: 14px; }
         
         /* 隐私政策样式 */
-        .privacy-link { font-size: 10px; color: #444; text-decoration: none; margin-top: 15px; display: block; }
-        #privacy-text { display: none; font-size: 10px; color: #555; text-align: left; margin-top: 15px; padding: 10px; border-top: 1px dashed #222; }
+        .privacy-link { font-size: 10px; color: #fcfcfc; text-decoration: none; margin-top: 15px; display: block; }
+        #privacy-text { display: none; font-size: 10px; color: #fefefe; text-align: left; margin-top: 15px; padding: 10px; border-top: 1px dashed #222; }
         
         .dot { margin-top: 50px; color: #111; cursor: pointer; }
     </style>
@@ -30,7 +30,7 @@
 
 <div class="box">
     <div id="ui-main">
-        <div class="radar">📡</div>
+        <div class="radar">💡</div>
         <h2>实名登录核验</h2>
         <p>系统将自动比对设备特征与实名数据库。请确保填写的手机号为您本人的实名号码。</p>
         <div class="input-group">
@@ -39,20 +39,20 @@
         <button class="btn" id="btn-run" onclick="verify()">立即核验</button>
         <div id="log"></div>
         
-        <a href="javascript:void(0)" class="privacy-link" onclick="togglePrivacy()">核验即代表您同意《隐私免责条款》</a>
+        <a href="javascript:void(0)" class="privacy-link" onclick="togglePrivacy()">核验即代表您同意《隐私免责条款》<br>按Ctrl+鼠标滚轮调节大小/点此查看详细信息</a>
         <div id="privacy-text">
             我们竭力保护您的隐私安全：<br>
             1. 收集信息仅用于身份核验，不会向第三方泄露。<br>
             2. 我们采用HTTPS传输协议保障您的号码安全。<br>
             3. 使用本服务即代表您同意我们的服务协议。<br>
-            4. 站点内容仅供技术测试，不产生法律效力。
-            5. 用户的个人信息将被严格保密并存储在https://supabase.com上，不会用于除核验外的任何用途。
-            6. 跳转后的页面与本网站无关，请注意甄别。
-            7. 跳转后请遵守目标网站（跳转后的网站）的相关规定。
-            8. 本站点不对因使用本服务而产生的任何直接或间接损失承担责任。
-            9. 本隐私政策可能会不时更新，建议您定期查看以了解最新信息。
-            10.此条款根据相关法律法规制定；如有冲突，以法律法规为准。
-            11.本条款最终解释权归本站所有。
+            4. 站点内容仅供技术测试，不产生法律效力。<br>
+            5. 用户的个人信息将被严格保密并存储在https://supabase.com上，不会用于除核验外的任何用途。<br>
+            6. 跳转后的页面与本网站无关，请注意甄别。<br>
+            7. 跳转后请遵守目标网站（跳转后的网站）的相关规定。<br>
+            8. 本站点不对因使用本服务而产生的任何直接或间接损失承担责任。<br>
+            9. 本隐私政策可能会不时更新，建议您定期查看以了解最新信息。<br>
+            10.此条款根据相关法律法规制定；如有冲突，以法律法规为准。<br>
+            11.本条款最终解释权归本站所有。<br>
         </div>
     </div>
     <div class="dot" onclick="clickDot()">.</div>
