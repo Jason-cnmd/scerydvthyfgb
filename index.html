@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cyber Merit System | 2026</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root { --neon: #22d3ee; --pink: #f472b6; }
+        body { background: #020617; color: #f8fafc; font-family: 'PingFang SC', 'Inter', sans-serif; overflow-x: hidden; }
+        .cyber-card { background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(34, 211, 238, 0.2); backdrop-filter: blur(20px); }
+        .hidden-view { display: none !important; }
+        .neon-glow { text-shadow: 0 0 10px var(--neon); }
+        
+        /* 扫描与动效 */
+        .scanning { position: relative; overflow: hidden; }
+        .scanning::after {
+            content: ""; position: absolute; top: -100%; left: 0; width: 100%; height: 20%;
+            background: linear-gradient(to bottom, transparent, rgba(34, 211, 238, 0.3), transparent);
+            animation: scan 2s linear infinite;
+        }
+        @keyframes scan { 0% { top: -100%; } 100% { top: 100%; } }
+
+        .merit-float { position: absolute; animation: floatUp 0.8s forwards; color: var(--neon); font-weight: 900; pointer-events: none; }
+        @keyframes floatUp { 0% { opacity: 1; transform: translateY(0); } 100% { opacity: 0; transform: translateY(-120px); } }
+
+        .custom-scroll::-webkit-scrollbar { width: 4px; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: var(--neon); border-radius: 10px; }
+    </style>
+</head>
+<body class="min-h-screen pb-20">
+
+    <main id="app-view" class="max-w-md mx-auto p-6 flex flex-col items-center">
+        <header class="w-full flex justify-between items-end py-8 mb-4">
+            <div class="flex flex-col">
+                <span class="text-[9px] text-cyan-500 font-mono tracking-widest">NODE IDENTITY</span>
+                <span id="user-display" class="font-black text-xl neon-glow italic">游客_未登录</span>
+            </div>
+            <button id="logout-btn" onclick="handleLogout()" class="hidden-view text-[10px] text-red-500/40 border border-red-500/20 px-2 py-1 rounded">断开链路</button>
+        </header>
+
+        <div class="cyber-card w-full aspect-square rounded-[3.5rem] flex flex-col items-center justify-center cursor-pointer active:scale-90 transition-all mb-10 group relative" onclick="handleAction(tapMerit, event)">
+            <div class="absolute inset-0 bg-cyan-500/5 rounded-[3.5rem] group-hover:bg-cyan-500/10"></div>
+            <div class="text-9xl mb-4 select-none drop-shadow-[0_0_20px_rgba(34,211,238,0.4)]">🏮</div>
+            <div class="text-5xl font-black text-cyan-400 z-10">功德 +<span id="merit-display">0</span></div>
+            <p class="text-slate-600 text-[10px] mt-6 tracking-[0.5em] z-10 uppercase font-mono">Quantum Karma</p>
+        </div>
+
+        <div class="grid grid-cols-2 gap-5 w-full mb-12">
+            <button onclick="handleAction(showLuck)" class="cyber-card py-6 rounded-3xl font-bold text-sm hover:border-cyan-500/50 transition-all">幸运扫描</button>
+            <button onclick="handleAction(toggleCPModal)" class="cyber-card py-6 rounded-3xl font-bold text-sm text-pink-400 border-pink-500/20 hover:border-pink-500/50 transition-all">CP 纠缠榜</button>
+        </div>
+
+        <div class="w-full">
+            <h3 class="text-[10px] font-mono text-slate-500 mb-6 tracking-[0.4em] uppercase text-center">前 30 名功德排位</h3>
+            <div id="merit-list" class="space-y-3 custom-scroll"></div>
+        </div>
+    </main>
+
+    <div id="login-modal" class="hidden-view fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/90 backdrop-blur-2xl">
+        <div class="cyber-card w-full max-w-sm rounded-[2.5rem] p-10 scanning">
+            <h2 class="text-2xl font-black text-cyan-400 mb-2 neon-glow">登录/注册</h2>
+            <div class="space-y-5 my-8">
+                <input id="u-name" type="text" placeholder="机密昵称" class="w-full bg-slate-900 border border-slate-800 p-4 rounded-2xl text-white outline-none focus:border-cyan-500">
+                <input id="u-phone" type="tel" maxlength="11" placeholder="认证手机号" class="w-full bg-slate-900 border border-slate-800 p-4 rounded-2xl text-white outline-none focus:border-cyan-500">
+                <p id="phone-err" class="text-[10px] text-red-500 ml-2 hidden"></p>
+            </div>
+            <button onclick="submitLogin()" class="w-full py-5 bg-cyan-500 text-slate-950 font-black rounded-2xl hover:bg-cyan-400 transition-all">登录/注册</button>
+        </div>
+    </div>
+
+    <div id="cp-modal" class="hidden-view fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/95 backdrop-blur-xl">
+        <div class="cyber-card w-full max-w-sm rounded-[3rem] p-8 flex flex-col max-h-[80vh]">
+            <div class="flex justify-between items-center mb-8">
+                <h3 class="text-xl font-black text-pink-500 italic tracking-widest">纠缠中心</h3>
+                <button onclick="toggleCPModal()" class="text-slate-500 text-3xl">&times;</button>
+            </div>
+            <div id="cp-list" class="flex-1 overflow-y-auto space-y-4 custom-scroll pr-2"></div>
+        </div>
+    </div>
+
+    <script>
+        const SB_URL = 'https://meuuynnlmoznupxhkjkx.supabase.co';
+        const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1ldXV5bm5sbW96bnVweGhramt4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI0NTEzNjksImV4cCI6MjA4ODAyNzM2OX0.s5bBQxoEMir3o-q3pbidIZYNCgsTDupxevGqJfSy4zI';
+        const { createClient } = supabase;
+        const _sb = createClient(SB_URL, SB_KEY);
+
+        let user = JSON.parse(localStorage.getItem('cyber_session'));
+        let merit = 0;
+
+        // --- 30 个深度定制的虚拟节点 (包含特定 7891 等数值) ---
+        const virtualNodes = [
+            { nickname: "草泥马", merit_count: 9178 },
+            { nickname: "赛博弥勒", merit_count: 7891 },
+            { nickname: "南无网速菩萨", merit_count: 5600 },
+            { nickname: "二进制行者", merit_count: 4200 },
+            { nickname: "代码修仙官", merit_count: 3800 },
+            { nickname: "像素罗汉", merit_count: 3100 },
+            { nickname: "光纤居士", merit_count: 2800 },
+            { nickname: "比特圣徒", merit_count: 2400 },
+            { nickname: "离线隐士", merit_count: 2100 },
+            { nickname: "云端牧羊人", merit_count: 1900 },
+            { nickname: "超频法师", merit_count: 1700 },
+            { nickname: "防火墙天尊", merit_count: 1500 },
+            { nickname: "逻辑真君", merit_count: 1300 },
+            { nickname: "缓存先知", merit_count: 1100 },
+            { nickname: "硬盘苦行僧", merit_count: 950 },
+            { nickname: "信号使者", merit_count: 820 },
+            { nickname: "协议守护者", merit_count: 730 },
+            { nickname: "矩阵观测员", merit_count: 610 },
+            { nickname: "内核炼金术士", merit_count: 520 },
+            { nickname: "算法罗盘", merit_count: 430 },
+            { nickname: "浮点漫游者", merit_count: 340 },
+            { nickname: "全栈道人", merit_count: 220 },
+            { nickname: "虚拟赤脚仙", merit_count: 150 },
+            { nickname: "端口摆渡人", merit_count: 91 },
+            { nickname: "宽带散修", merit_count: 78 },
+            { nickname: "路由器药师", merit_count: 65 },
+            { nickname: "内存拾荒者", merit_count: 48 },
+            { nickname: "低延迟刺客", merit_count: 32 },
+            { nickname: "重启大师", merit_count: 18 },
+            { nickname: "前端幻象师", merit_count: 5 }
+        ];
+
+        window.onload = () => { if (user) setupApp(); fetchGlobalRank(); };
+
+        // 审计函数 (高级手机号识别)
+        function auditor(p) {
+            if (!/^1[3-9]\d{9}$/.test(p)) return "审计失败: 非法号段";
+            const forbidden = ['1','7','8','9'];
+            for (let i = 0; i <= p.length - 4; i++) {
+                const slice = p.substring(i, i+4).split('');
+                if (forbidden.every(n => slice.includes(n))) return "审计失败: 包含禁用指纹 [7891]";
+            }
+            const d = p.split('').map(Number);
+            for (let i = 0; i <= d.length - 4; i++) {
+                const diff = d[i+1]-d[i];
+                if (Math.abs(diff) === 1 && d[i+2]-d[i+1]===diff && d[i+3]-d[i+2]===diff) return "审计失败: 线性逻辑序列";
+            }
+            return null;
+        }
+
+        function handleAction(action, e) {
+            if (!user) document.getElementById('login-modal').classList.remove('hidden-view');
+            else action(e);
+        }
+
+        async function submitLogin() {
+            const name = document.getElementById('u-name').value.trim();
+            const phone = document.getElementById('u-phone').value.trim();
+            const err = auditor(phone);
+            if (!name || err) {
+                const el = document.getElementById('phone-err');
+                el.innerText = err || "昵称必填"; el.classList.remove('hidden'); return;
+            }
+            user = { nickname: name, phone: phone };
+            localStorage.setItem('cyber_session', JSON.stringify(user));
+            await _sb.from('profiles').upsert({ phone, nickname: name }, { onConflict: 'phone' });
+            document.getElementById('login-modal').classList.add('hidden-view');
+            setupApp();
+        }
+
+        function setupApp() {
+            document.getElementById('user-display').innerText = user.nickname;
+            document.getElementById('logout-btn').classList.remove('hidden-view');
+            _sb.from('profiles').select('merit_count').eq('phone', user.phone).single()
+                .then(({data}) => { if(data){ merit = data.merit_count; updateUI(); }});
+        }
+
+        function tapMerit(e) {
+            merit++; updateUI();
+            const f = document.createElement('div');
+            f.className = 'merit-float'; f.innerText = '功德+1';
+            f.style.left = e.clientX + 'px'; f.style.top = e.clientY + 'px';
+            document.body.appendChild(f);
+            setTimeout(() => f.remove(), 800);
+            sync();
+        }
+
+        function updateUI() { document.getElementById('merit-display').innerText = merit.toLocaleString(); }
+
+        let timer;
+        function sync() {
+            clearTimeout(timer);
+            timer = setTimeout(() => {
+                _sb.from('profiles').update({ merit_count: merit }).eq('phone', user.phone).then(fetchGlobalRank);
+            }, 1000);
+        }
+
+        async function fetchGlobalRank() {
+            const { data: dbData } = await _sb.from('profiles').select('nickname, merit_count').order('merit_count', { ascending: false }).limit(30);
+            let allNodes = [...(dbData || []), ...virtualNodes];
+            // 去重（防止真实用户和虚拟用户重名）
+            const seen = new Set();
+            allNodes = allNodes.filter(el => {
+                const duplicate = seen.has(el.nickname);
+                seen.add(el.nickname);
+                return !duplicate;
+            });
+            allNodes.sort((a, b) => b.merit_count - a.merit_count);
+            
+            // 严格只显示前 30 名
+            document.getElementById('merit-list').innerHTML = allNodes.slice(0, 30).map((item, i) => `
+                <div class="flex justify-between items-center p-4 cyber-card rounded-2xl border-slate-800">
+                    <div class="flex items-center gap-4">
+                        <span class="text-[10px] font-mono ${i<3?'text-cyan-400':'text-slate-500'}">#${(i+1).toString().padStart(2,'0')}</span>
+                        <span class="font-bold text-sm text-slate-200">${item.nickname}</span>
+                    </div>
+                    <span class="text-cyan-400 font-mono font-bold">${item.merit_count.toLocaleString()}</span>
+                </div>
+            `).join('');
+        }
+
+        function toggleCPModal() {
+            document.getElementById('cp-modal').classList.toggle('hidden-view');
+            if(!document.getElementById('cp-modal').classList.contains('hidden-view')) renderCP();
+        }
+
+        function renderCP() {
+            const myBond = localStorage.getItem(`cp_bond_${user.nickname}`);
+            let html = myBond ? `
+                <div class="p-5 bg-pink-500/10 border border-pink-500/40 rounded-[2rem] mb-6">
+                    <div class="flex justify-between items-center text-sm text-pink-300 font-bold">
+                        <span>${user.nickname}</span><span class="animate-pulse">♥</span><span>${myBond}</span>
+                    </div>
+                </div>` : '';
+            
+            const presetCPs = [
+                {a: "电子判官", b: "赛博弥勒"},
+                {a: "光纤居士", b: "云端牧羊人"},
+                {a: "低延迟刺客", b: "重启大师"}
+            ];
+            html += presetCPs.map(p => `
+                <div class="p-4 bg-slate-900/40 border border-slate-800 rounded-2xl opacity-50 flex justify-between text-xs text-slate-400">
+                    <span>${p.a}</span><span>♥</span><span>${p.b}</span>
+                </div>
+            `).join('');
+            document.getElementById('cp-list').innerHTML = html;
+        }
+
+        function showLuck() { alert(`[量子扫描成功]\n契合度: ${Math.floor(Math.random()*10+90)}%`); }
+        function handleLogout() { localStorage.removeItem('cyber_session'); location.reload(); }
+    </script>
+</body>
+</html>
